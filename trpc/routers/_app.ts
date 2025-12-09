@@ -5,10 +5,15 @@ import { inngest } from '@/app/api/inngest/client';
 
 export const appRouter = createTRPCRouter({
   testAi : protectedProcedure.mutation(async ()=>{
-    await inngest.send({
+    try {
+      await inngest.send({
       name: "execute/ai"
     })
     return {success: true , message: "AI Job Queued"}
+    } catch (error) {
+      console.error("Failed to queue AI job:", error);
+      throw new Error("Failed to queue AI job");  
+    }
   }),
   getUsers: protectedProcedure.query(({ctx})=>{
     console.log({userId: ctx.auth.user.id})

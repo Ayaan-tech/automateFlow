@@ -9,7 +9,7 @@ const mistral = createMistral({apiKey: process.env.MISTRAL_API_KEY!})
 const groq = createGroq({apiKey: process.env.GROQ_API_KEY!});
 
 const google = createGoogleGenerativeAI({apiKey: process.env.GOOGLE_GENERATIVE_API_KEY!})
-export const exceute = inngest.createFunction(
+export const execute = inngest.createFunction(
   { id: "execute-ai" },
   { event: "execute/ai" },
   async ({ event, step }) => {
