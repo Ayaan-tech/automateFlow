@@ -9,7 +9,7 @@ import { toast } from "sonner";
 export const HomepageClient = () => {
   const trpc = useTRPC()
   const queryClient = useQueryClient();
-  const { data } = useQuery(trpc.getUsers.queryOptions())
+  const { data } = useQuery(trpc.getWorkflows.queryOptions())
   const testAi = useMutation(trpc.testAi.mutationOptions({
     onSuccess: () => {
       toast.success("AI Task Queued")
@@ -18,7 +18,7 @@ export const HomepageClient = () => {
       toast.error(error.message)
     }
   }))
-  const create = useMutation(trpc.creatrWorkFlow.mutationOptions({
+  const create = useMutation(trpc.createWorkflow.mutationOptions({
     onSuccess: () => {
       toast.success("Job Queued")
     },

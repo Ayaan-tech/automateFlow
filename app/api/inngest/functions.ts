@@ -3,7 +3,9 @@ import {inngest} from "./client"
 import {createGoogleGenerativeAI} from "@ai-sdk/google"
 import { createMistral } from '@ai-sdk/mistral';
 import { createGroq } from '@ai-sdk/groq';
+import * as Sentry from "@sentry/nextjs"
 import {generateText} from "ai"
+
 
 const mistral = createMistral({apiKey: process.env.MISTRAL_API_KEY!})
 const groq = createGroq({apiKey: process.env.GROQ_API_KEY!});
@@ -14,12 +16,18 @@ export const execute = inngest.createFunction(
   { event: "execute/ai" },
   async ({ event, step }) => {
     await step.sleep("Sleef for 5 seconds", 5000);
+    Sentry.logger.info("User triggerred AI execution")
     const {steps: geminiSteps} = await step.ai.wrap("gemini-generate-text",
       generateText,
       {
         model: google("gemini-2.5-flash-lite"),
         system: "You are a helpful assistant that helps to automate workflows.",
         prompt: "What is 2 + 2?",
+        experimental_telemetry:{
+          isEnabled:true,
+          recordInputs:true,
+          recordOutputs:true,
+        }
       }
     );
     const {steps: mistralSteps} = await step.ai.wrap("mistral-generate-text",
@@ -28,6 +36,11 @@ export const execute = inngest.createFunction(
         model: mistral("ministral-8b-latest"),
         system: "You are a helpful assistant that helps to automate workflows.",
         prompt: "What is 2 + 2?",
+        experimental_telemetry:{
+          isEnabled:true,
+          recordInputs:true,
+          recordOutputs:true,
+        }
       }
     );
     const {steps: groqSteps} = await step.ai.wrap("groq-generate-text",
@@ -36,6 +49,11 @@ export const execute = inngest.createFunction(
         model: groq("llama-3.3-70b-versatile"),
         system: "You are a helpful assistant that helps to automate workflows.",
         prompt: "What is 2 + 2?",
+        experimental_telemetry:{
+          isEnabled:true,
+          recordInputs:true,
+          recordOutputs:true,
+        }
       }
     );
     return {

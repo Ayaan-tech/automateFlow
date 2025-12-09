@@ -15,12 +15,11 @@ export const appRouter = createTRPCRouter({
       throw new Error("Failed to queue AI job");  
     }
   }),
-  getUsers: protectedProcedure.query(({ctx})=>{
-    console.log({userId: ctx.auth.user.id})
+  getWorkflows: protectedProcedure.query(({ctx})=>{ 
 
     return prisma.workflow.findMany();
   }),
-  creatrWorkFlow: protectedProcedure.mutation(async ()=>{
+  createWorkflow: protectedProcedure.mutation(async ()=>{
     await inngest.send({
       name: "test/hello.world",
       data:{
