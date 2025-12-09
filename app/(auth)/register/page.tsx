@@ -1,8 +1,8 @@
 import React from 'react'
-import { Register } from '../_components/RegisterForm'
+import Register from '../_components/RegisterForm'
 import { noAuth, requireAuth } from '@/lib/auth-utils'
 
-const Registerpage = () => {
+const Registerpage = async() => {
     await noAuth()
   return <Register/>
 }
