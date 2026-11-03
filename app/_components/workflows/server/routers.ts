@@ -2,13 +2,25 @@ import prisma from "@/lib/prisma";
 import {generateSlug} from "random-word-slugs"
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import z, { promise } from "zod";
+import type { Node, Edge } from "@xyflow/react";
+import {NodeType} from '@/src/generated'
 import { PAGINATION } from "@/app/config/constants";
 export const workflowsRouter = createTRPCRouter({
     create: protectedProcedure.mutation(async({ctx})=>{
         return prisma.workflow.create({
             data:{
                 name: generateSlug(3),
-                userId: ctx.auth.user.id
+                userId: ctx.auth.user.id,
+                nodes:{
+                    create:{
+                        type: NodeType.INITIAL,
+                        position:{
+                            x:0,
+                            y:0,
+                        },
+                       name: NodeType.INITIAL,
+                    },
+                },
             }
         })
     }),
@@ -35,12 +47,99 @@ export const workflowsRouter = createTRPCRouter({
             }
         })
     }),
+    update: protectedProcedure
+    .input(
+        z.object({
+            id:z.string(),
+            nodes: z.array(
+                z.object({
+                    id: z.string(),
+                    type: z.string().nullish(),
+                    position:z.object({x: z.number(), y: z.number() }),
+                    data: z.record(z.string(), z.any()).optional(),
+                }),
+            ),
+            edges:z.array(
+                z.object({
+                    source: z.string(),
+                    target: z.string(),
+                    sourceHandle: z.string().nullish(),
+                    targetHandle: z.string().nullish(),
+                }),
+            )
+        }),
+    ).mutation(({ctx, input}) =>{
+        const {id , nodes, edges} = input;
+
+        const workflow = await prisma.workflow.update({
+            where: {id: input.id, userId: ctx.auth.user.id},
+            data: {name: input.name},
+        })
+        //Transaction to ensure consistency
+        return await prisma.$transaction(async(tx)=>{
+            await tx.node.deleteMany({
+                where:{workflowId: id}
+            });
+            //Create new Nodes
+            await tx.nodes.createMany({
+                data: nodes.map((node) =>({
+                    id: node.id,
+                    workflowId: id,
+                    name: node.type || "unknown",
+                    type: node.type as NodeType,
+                    position: node.position,
+                    data: node.data || {}
+                })),
+            });
+            //Create Connections
+            await tx.connection.createMany({
+                data: edges.map((edge)=>({
+                    workflowId: id,
+                    fromNodeId: edge.source,
+                    toNodeId: edge.target,
+                    fromOutput: edge.sourceHandle || "main",
+                    toInput: edge.targetHandle || "main"
+                })),
+            });
+
+            //Update workflow's updateAt timestamp
+            await tx.workflow.update({
+                where: {id},
+                data :{updatedAt: new Date()},
+            });
+        })
+    })
+    ,
     getOne:protectedProcedure
     .input(z.object({id: z.string()}))
-    .query(({ctx, input})=>{
-        return prisma.workflow.findUniqueOrThrow({
-            where:{id:input.id, userId: ctx.auth.user.id}
-        })
+    .query(async ({ctx, input})=>{
+        const workflow = await  prisma.workflow.findUniqueOrThrow({
+            where:{id:input.id, userId: ctx.auth.user.id},
+            include:{nodes: true, connections:true}
+        });
+        //transform the Node types to reactFlow types
+        const nodes: Node[] = workflow.nodes.map((node)=>{
+            return {
+                id: node.id,
+                type: node.type,
+                data: (node.data as Record<string, unknown>) || {},
+                position: node.position as {x: number , y: number},
+            }
+        });
+        //Transform server connections to edges
+        const edges: Edge[] = workflow.connections.map((connection)=>({
+            id:connection.id,
+            source:connection.fromNodeId,
+            target:connection.toNodeId,
+            sourceHandle:connection.fromOutput,
+            targetHandle:connection.toInput
+        }));
+        return {
+            id: workflow.id,
+            name: workflow.name,
+            nodes,
+            edges, 
+        }  
     }),
     getMany:protectedProcedure
     .input(
